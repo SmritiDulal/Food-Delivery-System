@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Food Delivery — Simple Frontend</title>
+  <style>
+    body{margin:0;font-family:system-ui,Arial;background:#0f172a;color:#e5e7eb}
+    .container{max-width:1100px;margin:0 auto;padding:16px}
+    header{position:sticky;top:0;background:#111827;border-bottom:1px solid #1f2937}
+    .row{display:flex;align-items:center;gap:12px;justify-content:space-between}
+    .pill{background:#1f2937;border:1px solid #273244;padding:8px 12px;border-radius:999px}
+    .btn{padding:8px 12px;border-radius:10px;border:1px solid #2a364b;background:#172033;color:#e5e7eb;cursor:pointer}
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .card{background:#111827;border:1px solid #1f2937;border-radius:14px;overflow:hidden}
+    .media{height:110px;background:linear-gradient(120deg,#22d3ee,#a78bfa)}
+    .pad{padding:12px}
+    .tag{font-size:12px;color:#94a3b8}
+    .menu{display:none;padding:12px;border-top:1px dashed #1f2937}
+    .menu li{display:flex;justify-content:space-between;padding:6px 0}
+    aside{position:sticky;top:76px;height:fit-content}
+    .cart{background:#111827;border:1px solid #1f2937;border-radius:14px}
+    .line{display:flex;justify-content:space-between;align-items:center;padding:8px;border-top:1px solid #1f2937}
+    .qty{display:inline-flex;border:1px solid #2a364b;border-radius:8px}
+    .qty button{background:transparent;border:0;color:#e5e7eb;padding:4px 8px;cursor:pointer}
+    .totals{display:grid;grid-template-columns:1fr auto;gap:6px;padding:12px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}
+    @media(max-width:580px){.cards{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container row" style="padding:10px 16px">
+      <strong>🍔 Food Delivery</strong>
+      <div class="row" style="gap:8px">
+        <input id="q" placeholder="Search…" class="pill" style="outline:none;background:#0b1220;color:#e5e7eb;border:1px solid #1f2937"/>
+        <button class="btn" id="find">Find</button>
+        <button class="btn" id="checkoutTop">Cart <span id="count" class="pill">0</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container grid">
+    <section>
+      <div class="row" style="margin-bottom:8px">
+        <div class="row" id="filters">
+          <button class="btn pill" data-f="all">All</button>
+          <button class="btn pill" data-f="pizza">Pizza</button>
+          <button class="btn pill" data-f="sushi">Sushi</button>
+          <button class="btn pill" data-f="vegan">Vegan</button>
+        </div>
+        <span class="tag">Click a card → open menu</span>
+      </div>
+      <div class="cards" id="restaurants"></div>
+    </section>
+
+    <aside>
+      <div class="cart">
+        <div class="pad row"><strong>Cart</strong><button class="btn" id="clear">Clear</button></div>
+        <div id="cart"></div>
+        <div class="totals">
+          <div>Subtotal</div><div id="sub">$0.00</div>
+          <div>Delivery</div><div id="deliv">$3.99</div>
+          <div><strong>Total</strong></div><div id="total"><strong>$0.00</strong></div>
+        </div>
+        <div class="pad"><button class="btn" id="checkout" style="width:100%">Checkout</button></div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // Minimal mock data
+    const DATA=[
+      {id:'r1',name:'SushiGo',tags:['sushi'],rating:4.7,time:'20-30',menu:[
+        {id:'m1',name:'Rainbow Roll',price:14.5},{id:'m2',name:'Salmon Nigiri',price:12}
+      ]},
+      {id:'r2',name:'Pizza Nova',tags:['pizza'],rating:4.5,time:'25-35',menu:[
+        {id:'m3',name:'Margherita',price:15},{id:'m4',name:'Pepperoni',price:16}
+      ]},
+      {id:'r3',name:'Green Spoon',tags:['vegan'],rating:4.6,time:'15-25',menu:[
+        {id:'m5',name:'Buddha Bowl',price:13.5},{id:'m6',name:'Jackfruit Wrap',price:12}
+      ]}
+    ];
+
+    const state={filter:'all',cart:{}};
+    const $=sel=>document.querySelector(sel);
+    const fmt=n=>`$${n.toFixed(2)}`;
+
+    function render(){
+      const q=$('#q').value.toLowerCase();
+      const list=DATA.filter(r=> (state.filter==='all'||r.tags.includes(state.filter)) && (!q||r.name.toLowerCase().includes(q)) );
+      $('#restaurants').innerHTML=list.map(r=>`
+        <article class="card" data-id="${r.id}">
+          <div class="media"></div>
+          <div class="pad">
+            <div class="row"><strong>${r.name}</strong><span class="tag">⭐ ${r.rating}</span></div>
+            <div class="tag">ETA ${r.time} • ${r.tags.map(t=>`#${t}`).join(' ')}</div>
+            <button class="btn" style="margin-top:8px" data-open="${r.id}">View menu</button>
+            <ul class="menu" id="menu-${r.id}">
+              ${r.menu.map(m=>`<li>${m.name} <span>${fmt(m.price)}</span> <button class='btn' data-add='${m.id}' data-from='${r.id}'>Add</button></li>`).join('')}
+            </ul>
+          </div>
+        </article>`).join('');
+
+      document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{
+        const ul=$(`#menu-${b.dataset.open}`); ul.style.display = ul.style.display==='block'?'none':'block';
+      });
+      document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+        const rest=DATA.find(r=>r.id===b.dataset.from);
+        const item=rest.menu.find(m=>m.id===b.dataset.add);
+        if(!state.cart[item.id]) state.cart[item.id]={...item,qty:0,from:rest.name};
+        state.cart[item.id].qty++; updateCart();
+      });
+    }
+
+    function updateCart(){
+      const items=Object.values(state.cart);
+      $('#count').textContent=items.reduce((a,b)=>a+b.qty,0);
+      $('#cart').innerHTML=items.length?items.map(i=>`
+        <div class='line'>
+          <div><strong>${i.name}</strong><div class='tag'>${i.from}</div></div>
+          <div>
+            ${fmt(i.price*i.qty)}
+            <span class='qty'>
+              <button onclick="chg('${i.id}',-1)">-</button>
+              <button onclick="chg('${i.id}',+1)">+</button>
+            </span>
+          </div>
+        </div>`).join(''):`<div class='pad tag'>Cart is empty.</div>`;
+      const sub=items.reduce((s,i)=>s+i.price*i.qty,0);
+      const del=items.length?3.99:0; const tot=sub+del;
+      $('#sub').textContent=fmt(sub); $('#deliv').textContent=fmt(del); $('#total').innerHTML=`<strong>${fmt(tot)}</strong>`;
+    }
+
+    window.chg=(id,d)=>{ if(!state.cart[id]) return; state.cart[id].qty+=d; if(state.cart[id].qty<=0) delete state.cart[id]; updateCart(); };
+
+    // events
+    $('#filters').onclick=e=>{const b=e.target.closest('button'); if(!b) return; state.filter=b.dataset.f; render();};
+    $('#find').onclick=render; $('#q').onkeydown=e=>{if(e.key==='Enter') render();};
+    $('#clear').onclick=()=>{state.cart={}; updateCart();};
+    $('#checkout').onclick=()=>alert('Mock checkout — connect API here');
+    $('#checkoutTop').onclick=()=>document.querySelector('aside').scrollIntoView({behavior:'smooth'});
+
+    render(); updateCart();
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Food Delivery — Simple Frontend</title>
+  <style>
+    body{margin:0;font-family:system-ui,Arial;background:#0f172a;color:#e5e7eb}
+    .container{max-width:1100px;margin:0 auto;padding:16px}
+    header{position:sticky;top:0;background:#111827;border-bottom:1px solid #1f2937}
+    .row{display:flex;align-items:center;gap:12px;justify-content:space-between}
+    .pill{background:#1f2937;border:1px solid #273244;padding:8px 12px;border-radius:999px}
+    .btn{padding:8px 12px;border-radius:10px;border:1px solid #2a364b;background:#172033;color:#e5e7eb;cursor:pointer}
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .card{background:#111827;border:1px solid #1f2937;border-radius:14px;overflow:hidden}
+    .media{height:110px;background:linear-gradient(120deg,#22d3ee,#a78bfa)}
+    .pad{padding:12px}
+    .tag{font-size:12px;color:#94a3b8}
+    .menu{display:none;padding:12px;border-top:1px dashed #1f2937}
+    .menu li{display:flex;justify-content:space-between;padding:6px 0}
+    aside{position:sticky;top:76px;height:fit-content}
+    .cart{background:#111827;border:1px solid #1f2937;border-radius:14px}
+    .line{display:flex;justify-content:space-between;align-items:center;padding:8px;border-top:1px solid #1f2937}
+    .qty{display:inline-flex;border:1px solid #2a364b;border-radius:8px}
+    .qty button{background:transparent;border:0;color:#e5e7eb;padding:4px 8px;cursor:pointer}
+    .totals{display:grid;grid-template-columns:1fr auto;gap:6px;padding:12px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}
+    @media(max-width:580px){.cards{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container row" style="padding:10px 16px">
+      <strong>🍔 Food Delivery</strong>
+      <div class="row" style="gap:8px">
+        <input id="q" placeholder="Search…" class="pill" style="outline:none;background:#0b1220;color:#e5e7eb;border:1px solid #1f2937"/>
+        <button class="btn" id="find">Find</button>
+        <button class="btn" id="checkoutTop">Cart <span id="count" class="pill">0</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container grid">
+    <section>
+      <div class="row" style="margin-bottom:8px">
+        <div class="row" id="filters">
+          <button class="btn pill" data-f="all">All</button>
+          <button class="btn pill" data-f="pizza">Pizza</button>
+          <button class="btn pill" data-f="sushi">Sushi</button>
+          <button class="btn pill" data-f="vegan">Vegan</button>
+        </div>
+        <span class="tag">Click a card → open menu</span>
+      </div>
+      <div class="cards" id="restaurants"></div>
+    </section>
+
+    <aside>
+      <div class="cart">
+        <div class="pad row"><strong>Cart</strong><button class="btn" id="clear">Clear</button></div>
+        <div id="cart"></div>
+        <div class="totals">
+          <div>Subtotal</div><div id="sub">$0.00</div>
+          <div>Delivery</div><div id="deliv">$3.99</div>
+          <div><strong>Total</strong></div><div id="total"><strong>$0.00</strong></div>
+        </div>
+        <div class="pad"><button class="btn" id="checkout" style="width:100%">Checkout</button></div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // Minimal mock data
+    const DATA=[
+      {id:'r1',name:'SushiGo',tags:['sushi'],rating:4.7,time:'20-30',menu:[
+        {id:'m1',name:'Rainbow Roll',price:14.5},{id:'m2',name:'Salmon Nigiri',price:12}
+      ]},
+      {id:'r2',name:'Pizza Nova',tags:['pizza'],rating:4.5,time:'25-35',menu:[
+        {id:'m3',name:'Margherita',price:15},{id:'m4',name:'Pepperoni',price:16}
+      ]},
+      {id:'r3',name:'Green Spoon',tags:['vegan'],rating:4.6,time:'15-25',menu:[
+        {id:'m5',name:'Buddha Bowl',price:13.5},{id:'m6',name:'Jackfruit Wrap',price:12}
+      ]}
+    ];
+
+    const state={filter:'all',cart:{}};
+    const $=sel=>document.querySelector(sel);
+    const fmt=n=>`$${n.toFixed(2)}`;
+
+    function render(){
+      const q=$('#q').value.toLowerCase();
+      const list=DATA.filter(r=> (state.filter==='all'||r.tags.includes(state.filter)) && (!q||r.name.toLowerCase().includes(q)) );
+      $('#restaurants').innerHTML=list.map(r=>`
+        <article class="card" data-id="${r.id}">
+          <div class="media"></div>
+          <div class="pad">
+            <div class="row"><strong>${r.name}</strong><span class="tag">⭐ ${r.rating}</span></div>
+            <div class="tag">ETA ${r.time} • ${r.tags.map(t=>`#${t}`).join(' ')}</div>
+            <button class="btn" style="margin-top:8px" data-open="${r.id}">View menu</button>
+            <ul class="menu" id="menu-${r.id}">
+              ${r.menu.map(m=>`<li>${m.name} <span>${fmt(m.price)}</span> <button class='btn' data-add='${m.id}' data-from='${r.id}'>Add</button></li>`).join('')}
+            </ul>
+          </div>
+        </article>`).join('');
+
+      document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{
+        const ul=$(`#menu-${b.dataset.open}`); ul.style.display = ul.style.display==='block'?'none':'block';
+      });
+      document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+        const rest=DATA.find(r=>r.id===b.dataset.from);
+        const item=rest.menu.find(m=>m.id===b.dataset.add);
+        if(!state.cart[item.id]) state.cart[item.id]={...item,qty:0,from:rest.name};
+        state.cart[item.id].qty++; updateCart();
+      });
+    }
+
+    function updateCart(){
+      const items=Object.values(state.cart);
+      $('#count').textContent=items.reduce((a,b)=>a+b.qty,0);
+      $('#cart').innerHTML=items.length?items.map(i=>`
+        <div class='line'>
+          <div><strong>${i.name}</strong><div class='tag'>${i.from}</div></div>
+          <div>
+            ${fmt(i.price*i.qty)}
+            <span class='qty'>
+              <button onclick="chg('${i.id}',-1)">-</button>
+              <button onclick="chg('${i.id}',+1)">+</button>
+            </span>
+          </div>
+        </div>`).join(''):`<div class='pad tag'>Cart is empty.</div>`;
+      const sub=items.reduce((s,i)=>s+i.price*i.qty,0);
+      const del=items.length?3.99:0; const tot=sub+del;
+      $('#sub').textContent=fmt(sub); $('#deliv').textContent=fmt(del); $('#total').innerHTML=`<strong>${fmt(tot)}</strong>`;
+    }
+
+    window.chg=(id,d)=>{ if(!state.cart[id]) return; state.cart[id].qty+=d; if(state.cart[id].qty<=0) delete state.cart[id]; updateCart(); };
+
+    // events
+    $('#filters').onclick=e=>{const b=e.target.closest('button'); if(!b) return; state.filter=b.dataset.f; render();};
+    $('#find').onclick=render; $('#q').onkeydown=e=>{if(e.key==='Enter') render();};
+    $('#clear').onclick=()=>{state.cart={}; updateCart();};
+    $('#checkout').onclick=()=>alert('Mock checkout — connect API here');
+    $('#checkoutTop').onclick=()=>document.querySelector('aside').scrollIntoView({behavior:'smooth'});
+
+    render(); updateCart();
+  </script>
+</body>
+</html>
